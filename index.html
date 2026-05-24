@@ -1590,6 +1590,32 @@
                     <button class="news-refresh-btn" onclick="refreshNews()" title="Refresh news">🔄 Refresh</button>
                 </div>
             </div>
+            <div class="charts-panel" id="vulnChartsPanel" style="display:none;margin-bottom:16px">
+                <div class="charts-header" onclick="toggleVulnCharts()">
+                    <h4>📊 Vulnerability Analytics</h4>
+                    <span class="charts-toggle" id="vulnChartsToggle">▼</span>
+                </div>
+                <div class="charts-content" id="vulnChartsContent">
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h5>🛡️ Severity Distribution</h5>
+                            <canvas id="vulnChartSeverity"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h5>📦 Ecosystem Breakdown</h5>
+                            <canvas id="vulnChartEcosystem"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h5>🏆 Most Affected Packages</h5>
+                            <canvas id="vulnChartTopPackages"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h5>📅 CVEs Over Time (Last 30 Days)</h5>
+                            <canvas id="vulnChartTimeline"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="news-grid" id="newsGrid">
                 <div class="empty-state"><div class="icon">⏳</div><p>Loading news...</p></div>
             </div>
@@ -2053,6 +2079,7 @@
         topStars: null,
         domVsEm: null
     };
+    let vulnChartInstances = { severity: null, ecosystem: null, topPackages: null, timeline: null };
 
     // ==================== INIT ====================
     function init() {
@@ -3035,6 +3062,106 @@
         }
     }
 
+    // ==================== VULNERABILITY CHARTS ====================
+    function toggleVulnCharts() {
+        const content = document.getElementById('vulnChartsContent');
+        const toggle = document.getElementById('vulnChartsToggle');
+        if (content.classList.contains('show')) {
+            content.classList.remove('show');
+            toggle.classList.remove('expanded');
+        } else {
+            content.classList.add('show');
+            toggle.classList.add('expanded');
+        }
+    }
+
+    function renderVulnCharts() {
+        const items = newsData.vulnerabilities || [];
+        const valid = items.filter(i => i.severity && i.severity !== 'unknown');
+        if (valid.length === 0) return;
+
+        const css = getComputedStyle(document.documentElement);
+        const gridColor = css.getPropertyValue('--chart-grid').trim() || '#21262d';
+        const textColor = css.getPropertyValue('--text-secondary').trim() || '#8b949e';
+
+        Chart.defaults.color = textColor;
+        Chart.defaults.borderColor = gridColor;
+
+        // Destroy existing charts
+        Object.keys(vulnChartInstances).forEach(k => { if (vulnChartInstances[k]) { vulnChartInstances[k].destroy(); vulnChartInstances[k] = null; } });
+
+        const sevColors = { critical: '#f78166', high: '#f0883e', medium: '#d29922', low: '#3fb950' };
+
+        // 1. Severity Distribution (Doughnut)
+        const sevCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+        valid.forEach(i => { const s = i.severity || 'medium'; if (sevCounts[s] !== undefined) sevCounts[s]++; });
+        const sevLabels = Object.keys(sevCounts).filter(k => sevCounts[k] > 0);
+        const sevData = sevLabels.map(k => sevCounts[k]);
+        const sevBg = sevLabels.map(k => sevColors[k] || '#8b949e');
+
+        const ctxSev = document.getElementById('vulnChartSeverity');
+        if (ctxSev) {
+            vulnChartInstances.severity = new Chart(ctxSev, {
+                type: 'doughnut',
+                data: { labels: sevLabels, datasets: [{ data: sevData, backgroundColor: sevBg, borderWidth: 0 }] },
+                options: { responsive: true, plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 8 } } } }
+            });
+        }
+
+        // 2. Ecosystem Breakdown (Doughnut)
+        const ecoCounts = {};
+        valid.forEach(i => { const e = i.ecosystem || 'Unknown'; ecoCounts[e] = (ecoCounts[e] || 0) + 1; });
+        const ecoSorted = Object.entries(ecoCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const ecoLabels = ecoSorted.map(e => e[0]);
+        const ecoData = ecoSorted.map(e => e[1]);
+
+        const ctxEco = document.getElementById('vulnChartEcosystem');
+        if (ctxEco) {
+            vulnChartInstances.ecosystem = new Chart(ctxEco, {
+                type: 'doughnut',
+                data: { labels: ecoLabels, datasets: [{ data: ecoData, backgroundColor: ['#58a6ff','#a371f7','#3fb950','#f0883e','#f78166','#d29922','#39c5cf','#db61a2'], borderWidth: 0 }] },
+                options: { responsive: true, plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 8 } } } }
+            });
+        }
+
+        // 3. Most Affected Packages (Horizontal Bar)
+        const pkgCounts = {};
+        valid.forEach(i => { if (i.packageName) { const p = i.packageName.split(':')[0].split('/')[0]; pkgCounts[p] = (pkgCounts[p] || 0) + 1; } });
+        const pkgSorted = Object.entries(pkgCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const pkgLabels = pkgSorted.map(e => e[0]);
+        const pkgData = pkgSorted.map(e => e[1]);
+
+        const ctxPkg = document.getElementById('vulnChartTopPackages');
+        if (ctxPkg) {
+            vulnChartInstances.topPackages = new Chart(ctxPkg, {
+                type: 'bar',
+                data: { labels: pkgLabels, datasets: [{ label: 'Vulnerabilities', data: pkgData, backgroundColor: '#f78166', borderRadius: 4 }] },
+                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { color: gridColor }, beginAtZero: true }, y: { grid: { display: false } } } }
+            });
+        }
+
+        // 4. CVEs Over Time (Line — last 30 days bucketed by day)
+        const now = Date.now();
+        const thirtyDays = 30 * 86400000;
+        const dayBuckets = {};
+        for (let i = 0; i < 30; i++) { const d = new Date(now - i * 86400000); dayBuckets[d.toLocaleDateString('en-US', { month:'short', day:'numeric' })] = 0; }
+        const sortedDays = Object.keys(dayBuckets).reverse();
+        valid.forEach(i => {
+            const d = new Date(i.time); const key = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+            if (dayBuckets[key] !== undefined) dayBuckets[key]++;
+        });
+        const tlData = sortedDays.map(k => dayBuckets[k]);
+
+        const ctxTl = document.getElementById('vulnChartTimeline');
+        if (ctxTl) {
+            vulnChartInstances.timeline = new Chart(ctxTl, {
+                type: 'line',
+                data: { labels: sortedDays, datasets: [{ label: 'CVEs', data: tlData, borderColor: '#f0883e', backgroundColor: 'rgba(240,136,62,0.1)', fill: true, tension: 0.3, pointRadius: 3 }] },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }, y: { beginAtZero: true, grid: { color: gridColor } } } }
+            });
+        }
+    }
+
     // ==================== UTILS ====================
     function formatNumber(num) {
         if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -3596,6 +3723,10 @@
 
         // Load news data
         loadNewsData(category);
+
+        // Show/hide vulnerability charts panel
+        const vulnPanel = document.getElementById('vulnChartsPanel');
+        if (vulnPanel) vulnPanel.style.display = category === 'news-vulnerabilities' ? '' : 'none';
     }
 
     function renderNewsFilterPills(category) {
@@ -4107,7 +4238,13 @@
             return;
         }
 
-        grid.innerHTML = items.slice(0, 50).map((item, idx) => renderNewsCard(item, idx)).join('');
+        grid.innerHTML = items.slice(0, 50).map((item, idx) => renderNewsCard(item, idx)).join('') +
+            (section === 'vulnerabilities' && items.length > 0
+                ? `<div style="grid-column:1/-1;text-align:center;padding:16px 0 4px;font-size:0.78rem;color:var(--text-muted);border-top:1px solid var(--border);margin-top:8px">For more details, check out <a href="https://github.com/advisories" target="_blank" rel="noopener" style="color:var(--accent-blue);text-decoration:none;font-weight:600">GitHub Advisories</a></div>`
+                : '');
+
+        // Render vulnerability charts when section data is available
+        if (section === 'vulnerabilities') renderVulnCharts();
     }
 
     function renderNewsCard(item, idx) {
