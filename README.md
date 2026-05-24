@@ -2,7 +2,13 @@
 
 A comprehensive, interactive dashboard for discovering, monitoring, and analyzing top open-source repositories across 30+ technology categories. Powered by GitHub, Hacker News, Dev.to, and built with zero backend dependencies.
 
-![RepoTrend360 Dashboard](https://github.com/Dinesh0992/RepoTrend360/raw/main/docs/dashboard.png)
+## 📸 Screenshots
+
+### Main Dashboard
+![RepoTrend360 Dashboard](https://github.com/Dinesh0992/RepoTrend360/raw/main/image1.png)
+
+### Analytics & Visualizations
+![RepoTrend360 Analytics](https://github.com/Dinesh0992/RepoTrend360/raw/main/image2.png)
 
 ---
 
