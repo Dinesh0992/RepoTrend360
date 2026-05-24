@@ -1455,11 +1455,8 @@
                 <label>Year</label>
                 <select id="filterYear" onchange="applyFilters()">
                     <option value="all">All Years</option>
-                    <option value="2026" selected>2026 (Current)</option>
-                    <option value="2025">2025</option>
-                    <option value="2024">2024</option>
-                    <option value="2023">2023</option>
                 </select>
+                <script>(function(){const y=new Date().getFullYear(),s=document.getElementById('filterYear');for(let i=0;i<4;i++){const o=document.createElement('option');o.value=y-i;o.textContent=i===0?`${y} (Current)`:String(y-i);if(i===0)o.selected=true;s.appendChild(o)}})()</script>
             </div>
             <div class="filter-group">
                 <label>Time Range</label>
@@ -1468,7 +1465,7 @@
                     <option value="6m">Last 6 Months</option>
                     <option value="1y">Last 1 Year</option>
                     <option value="2y">Last 2 Years</option>
-                    <option value="ytd">Year to Date (2026)</option>
+                    <option value="ytd">Year to Date</option>
                 </select>
             </div>
             <div class="filter-group">
@@ -1612,7 +1609,7 @@
     const CATEGORY_QUERIES = {
         'ai-agents':    'topic:ai-agent stars:>5000',
         'llm':          'topic:llm stars:>10000',
-        'trending':     'stars:>30000 pushed:>2025-01-01',
+        'trending':     'stars:>30000',
         'top-typescript':'language:TypeScript stars:>25000',
         'top-python':   'language:Python stars:>25000',
         'code-intel':   'code intelligence OR knowledge graph stars:>5000',
@@ -3084,7 +3081,7 @@
 
     // ==================== RESET FILTERS ====================
     function resetFilters() {
-        document.getElementById('filterYear').value = '2026';
+        document.getElementById('filterYear').value = String(new Date().getFullYear());
         document.getElementById('filterTime').value = 'all';
         document.getElementById('filterSort').value = 'stars';
         document.getElementById('filterLang').value = 'all';
